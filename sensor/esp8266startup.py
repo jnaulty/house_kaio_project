@@ -3,12 +3,14 @@ try:
 except:
     import socket
 import os
+import time
 #import network 
 
 CONFIG_PATH = "wifi.cfg"
 WIFI_SSID = ""
 WIFI_PASSWORD = ""
 MQTT_HOST = "192.168.1.168"
+MQTT_PORT = "1234"
 SENSOR_NAME = "security001"
 SENSOR_TOPIC = "security"
 CONFIG = dict()
@@ -35,6 +37,7 @@ index = '''HTTP/1.0 200 OK\r\nContent-Type: text/html\r\n\r\n
     </body>
 </html>
 '''
+
 HTML_TO_CONFIG = dict()
 HTML_TO_CONFIG["ssid"] = "WIFI_SSID"
 HTML_TO_CONFIG["wifiPassword"] = "WIFI_PASSWORD"
@@ -47,6 +50,7 @@ def configInit():
 	CONFIG["WIFI_SSID"] = WIFI_SSID
 	CONFIG["WIFI_PASSWORD"] = WIFI_PASSWORD
 	CONFIG["MQTT_HOST"] = MQTT_HOST
+        CONFIG["MQTT_PORT"] = MQTT_PORT
 	CONFIG["SENSOR_NAME"] = SENSOR_NAME
 	CONFIG["SENSOR_TOPIC"] = SENSOR_TOPIC
 	return
@@ -59,28 +63,35 @@ def startAccessPoint():
 
 def startWifi():
 	print("Starting up Wifi connection")
-	print("SSID: %s")%WIFI_SSID
-	return
+	print("SSID: %s")%CONFIG["WIFI_SSID"]
+	return True
 
 def startMqtt():
 	print("Starting up MQTT Connection...")
-	print("MQTT Server: %s")%MQTT_IP
-	print("MQTT Port: %s")%MQTT_Port
-	return
+	print("MQTT Server: %s")%CONFIG["MQTT_HOST"]
+	print("MQTT Port: %s")%CONFIG["MQTT_PORT"]
+	return True
 
-def writeConfig(configFile, htmlConfig):
+
+def configExists():
+    return os.path.exists(CONFIG_PATH)
+
+def deleteConfig():
+    return os.remove(CONFIG_PATH)
+
+def writeConfig(htmlConfig):
 	print("Writting new config to file...")
-	os.remove(configFile)
-	f = open(configFile, "w+")
+	os.remove(CONFIG_PATH)
+	f = open(CONFIG_PATH, "w+")
 	print("%s")%htmlConfig
 	for key, value in htmlConfig.items():
 		f.write(HTML_TO_CONFIG[key]+":"+value+"\n")
 	f.close()
 	return
 
-def readConfig(configFile):
-	if os.path.exists(configFile):
-		f = open(configFile, 'r')
+def readConfig():
+	if os.path.exists(CONFIG_PATH):
+		f = open(CONFIG_PATH, 'r')
 		for line in f:
 			configList = line.strip().split(":")
 			if len(configList) == 2:
@@ -123,12 +134,10 @@ def startHTTPServer(micropython_optimize=False):
         processed_request=inRequest(req)
         #print(processed_request)
         # TODO write output of processPOST to file
-	htmlDict = processPOST(processed_request)
-	if htmlDict:
-		writeConfig(CONFIG_PATH, htmlDict)
-		return
-	print("%s")%CONFIG
-
+        htmlDict = processPOST(processed_request)
+        if htmlDict:
+	    writeConfig(htmlDict)
+            return True
         if not micropython_optimize:
             # To read line-oriented protocol (like HTTP) from a socket (and
             # avoid short read problem), it must be wrapped in a stream (aka
@@ -183,18 +192,42 @@ def processPOST(response_dict):
     return param_dict
 
 def apInit():
-	startAccessPoint()
+	#startAccessPoint()
 	startHTTPServer()
 
 def main():
-	configInit()
-	if not os.path.exists(configFile):
-		# start apInit
-		# wait for new config file to be returned.
-	# we have a config file	
-	# start the main loop
-	# start WIFI - try 3 times, if fails, next main loop should go to AP mode again.
-	# if successfull, start the MQTT broker - if failure : TBD
-	# if MQTT broker connection success: send data
-	return
+    configInit()
+    wifiTrials = 0
+    wifiSuccess = False
+    mqttSuccess = False
+    while(True):
+        if not configExists() or wifiTrials >=3:
+            # start apInit and wait for new config file to be created.
+            apInit()
+            wifiTrials = 0
+            wifiSuccess = False
+            mqttSuccess = False
+        # Config exists, read config and start wifi connection
+        readConfig()
+        if not wifiSuccess:
+            wifiSuccess = startWifi()
+            if wifiSuccess:
+                print "Wifi Connection Successfull!"
+                mqttTrials = 0
+                while mqttTrials <= 10:
+                    mqttSuccess = startMqtt()
+                    if mqttSuccess:
+                        print "MQTT Server Connection Successfull!"
+                        break
+                    else:
+                        mqttTrials+=1
+            else:
+                wifiTrials+=1
+        if wifiSuccess and mqttSuccess:
+            # start Sending data
+            print "Start Sending Data..."
+            time.sleep(10)
+
+    return
+
 main()
