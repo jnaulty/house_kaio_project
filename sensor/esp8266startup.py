@@ -77,12 +77,14 @@ def configExists():
     return os.path.exists(CONFIG_PATH)
 
 def deleteConfig():
-    return os.remove(CONFIG_PATH)
+    if configExists(CONFIG_PATH):
+        return os.remove(CONFIG_PATH)
+    else:
+        print('no file found')
 
 def writeConfig(htmlConfig):
 	print("Writting new config to file...")
-	os.remove(CONFIG_PATH)
-	f = open(CONFIG_PATH, "w+")
+	f = open(CONFIG_PATH, "w")
 	print("%s")%htmlConfig
 	for key, value in htmlConfig.items():
 		f.write(HTML_TO_CONFIG[key]+":"+value+"\n")
