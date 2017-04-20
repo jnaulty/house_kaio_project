@@ -172,7 +172,6 @@ def inRequest(text):
       while k>0 and text[k]!='\n' and text[k]!='\r':
          k=k-1
       content=text[k+1:]
-   text=text[text.index(' ')+1:]
    url=text[:text.index(' ')]
    return {"method":method,"url":url,"content":content}
 
