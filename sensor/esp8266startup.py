@@ -59,6 +59,7 @@ def configInit():
 def startAccessPoint():
     print("Starting up Access Point Mode")
     try:
+        disableSTA()
         ap_if = network.WLAN(network.AP_IF)
         ap_if.active(True)
     except:
@@ -72,18 +73,28 @@ def disableAP():
     ap_if.active(False)
     return
 
+def disableSTA():
+    print("Disabling STA")
+    sta_if = network.WLAN(network.STA_IF)
+    sta_if.active(False)
+    return
+
 def startWifi():
     print("Starting up Wifi connection")
     print("SSID: %s")%CONFIG["WIFI_SSID"]
-    #disableAP()
-    #sta_if = network.WLAN(network.STA_IF)
-    #if not sta_if.isconnected():
-    #    print('connecting to network...')
-    #    sta_if.active(True)
-    #    sta_if.connect(CONFIG["WIFI_SSID"], CONFIG["WIFI_PASSWORD"])
-    #    while not sta_if.isconnected():
-    #        pass
-    #print('network config:', sta_if.ifconfig())
+    disableAP()
+    sta_if = network.WLAN(network.STA_IF)
+    if not sta_if.isconnected():
+        print('Connecting to network...')
+        sta_if.active(True)
+        sta_if.connect(CONFIG["WIFI_SSID"], CONFIG["WIFI_PASSWORD"])
+        if sta_if.isconnected():
+            print('Network config:', sta_if.ifconfig())
+            return True
+        else:
+            return False
+    print('Already connected!')
+    print('Network config:', sta_if.ifconfig())
     return True
 
 def startMqtt():
@@ -94,7 +105,11 @@ def startMqtt():
 
 
 def configExists():
-    return os.path.exists(CONFIG_PATH)
+    files = os.listdir()
+    for file in files:
+        if file == CONFIG_PATH:
+            return True
+    return False
 
 def deleteConfig():
     if configExists():
@@ -214,7 +229,7 @@ def processPOST(response_dict):
     return param_dict
 
 def apInit():
-    #startAccessPoint()
+    startAccessPoint()
     req = startHTTPServer()
     writeConfig(req)
     return True
@@ -228,8 +243,8 @@ def main():
         if not configExists() or wifiTrials >=3:
             # start apInit and wait for new config file to be created.
             if wifiTrials >=3:
-                print "Wifi connection failed too many times with current config"
-            print "Returning back to Access Point Mode"
+                print("Wifi connection failed too many times")
+            print("Returning back to Access Point Mode")
             apInit()
             wifiTrials = 0
             wifiSuccess = False
@@ -237,17 +252,17 @@ def main():
         # Config exists, read config and start wifi connection
         if not wifiSuccess:
             if not readConfig():
-                print "Deleting Config and returning back to Access Point Mode"
+                print("Deleting Config and returning back to Access Point Mode")
                 deleteConfig()
                 continue
             wifiSuccess = startWifi()
             if wifiSuccess:
-                print "Wifi Connection Successfull!"
+                print("Wifi Connection Successfull!")
                 mqttTrials = 0
                 while mqttTrials <= 5:
                     mqttSuccess = startMqtt()
                     if mqttSuccess:
-                        print "MQTT Server Connection Successfull!"
+                        print("MQTT Server Connection Successfull!")
                         break
                     else:
                         mqttTrials+=1
@@ -257,7 +272,7 @@ def main():
                 continue
         if wifiSuccess and mqttSuccess:
             # start Sending data
-            print "Start Sending Data..."
+            print("Start Sending Data...")
             time.sleep(10)
             wifiTrials = 0
     print("Main Loop ended")
