@@ -1,12 +1,13 @@
 try:
     import usocket as socket
+    import network as network
 except:
     import socket
+
 import os
 import time
-#import network 
 
-CONFIG_PATH = "wifi.cfg"
+CONFIG_PATH = "./wifi.cfg"
 WIFI_SSID = ""
 WIFI_PASSWORD = ""
 MQTT_HOST = "192.168.1.168"
@@ -46,26 +47,30 @@ HTML_TO_CONFIG["sensorTopic"] = "SENSOR_TOPIC"
 HTML_TO_CONFIG["sensorName"] = "SENSOR_NAME"
 
 def configInit():
-	CONFIG["CONFIG_PATH"] = CONFIG_PATH
-	CONFIG["WIFI_SSID"] = WIFI_SSID
-	CONFIG["WIFI_PASSWORD"] = WIFI_PASSWORD
-	CONFIG["MQTT_HOST"] = MQTT_HOST
-        CONFIG["MQTT_PORT"] = MQTT_PORT
-	CONFIG["SENSOR_NAME"] = SENSOR_NAME
-	CONFIG["SENSOR_TOPIC"] = SENSOR_TOPIC
-	return
+    CONFIG["CONFIG_PATH"] = CONFIG_PATH
+    CONFIG["WIFI_SSID"] = WIFI_SSID
+    CONFIG["WIFI_PASSWORD"] = WIFI_PASSWORD
+    CONFIG["MQTT_HOST"] = MQTT_HOST
+    CONFIG["MQTT_PORT"] = MQTT_PORT
+    CONFIG["SENSOR_NAME"] = SENSOR_NAME
+    CONFIG["SENSOR_TOPIC"] = SENSOR_TOPIC
+    return
 
 def startAccessPoint():
-	print("Starting up Access Point Mode")
-	ap_if = network.WLAN(network.AP_IF)
-	ap_if.active(True)
-	return
+    print("Starting up Access Point Mode")
+    try:
+        ap_if = network.WLAN(network.AP_IF)
+        ap_if.active(True)
+    except:
+        print("ERROR: There was an error starting the Access Point")
+        return False
+    return True
 
 def disableAP():
-	print("Disabling AP")
-	ap_if = network.WLAN(network.AP_IF)
-	ap_if.active(False)
-	return
+    print("Disabling AP")
+    ap_if = network.WLAN(network.AP_IF)
+    ap_if.active(False)
+    return
 
 def startWifi():
     print("Starting up Wifi connection")
@@ -79,64 +84,65 @@ def startWifi():
     #    while not sta_if.isconnected():
     #        pass
     #print('network config:', sta_if.ifconfig())
+    return True
 
 def startMqtt():
-	print("Starting up MQTT Connection...")
-	print("MQTT Server: %s")%CONFIG["MQTT_HOST"]
-	print("MQTT Port: %s")%CONFIG["MQTT_PORT"]
-	return True
+    print("Starting up MQTT Connection...")
+    print("MQTT Server: %s")%CONFIG["MQTT_HOST"]
+    print("MQTT Port: %s")%CONFIG["MQTT_PORT"]
+    return True
 
 
 def configExists():
     return os.path.exists(CONFIG_PATH)
 
 def deleteConfig():
-    if configExists(CONFIG_PATH):
+    if configExists():
         return os.remove(CONFIG_PATH)
     else:
         print('no file found')
 
 def writeConfig(htmlConfig):
-	print("Writting new config to file: %s" % CONFIG_PATH)
-	f = open(CONFIG_PATH, "w")
-	print("%s")%htmlConfig
-	for key, value in htmlConfig.items():
-		f.write(HTML_TO_CONFIG[key]+":"+value+"\n")
-	f.close()
-	return
+    print("Writting new config to file: %s" % CONFIG_PATH)
+    f = open(CONFIG_PATH, "w")
+    for key, value in htmlConfig.items():
+        f.write(HTML_TO_CONFIG[key]+":"+value+"\n")
+    f.close()
+    return True
 
 def readConfig():
-	if os.path.exists(CONFIG_PATH):
-		f = open(CONFIG_PATH, 'r')
-		for line in f:
-			configList = line.strip().split(":")
-			if len(configList) == 2:
-				key = configList[0]
-				value = configList[1]
-				if key in CONFIG:
-					print('Writing to global scope: CONFIG[%s] = %s' % (key, value))
-					CONFIG[key] = value
-				else:
-					print("Error in parsing network config, back to AP mode")
-					print("%s")%line
-					f.close()
-					return
-			else:
-				print("Error in parsing network config, back to AP mode")
-				print("%s")%line
-				f.close()
-				return
-		f.close()
-	return
+    if os.path.exists(CONFIG_PATH):
+        f = open(CONFIG_PATH, 'r')
+        for line in f:
+            configList = line.strip().split(":")
+            if len(configList) == 2:
+                key = configList[0]
+                value = configList[1]
+                if key in CONFIG:
+                    print('Writing to global scope: CONFIG[%s] = %s' % (key, value))
+                    CONFIG[key] = value
+                else:
+                    print("Error in parsing network config, back to AP mode")
+                    print("%s")%line
+                    f.close()
+                    return False
+            else:
+                print("Error in parsing network config, back to AP mode")
+                print("%s")%line
+                f.close()
+                return False
+        f.close()
+    else:
+        print("Could not read file, file does not exists")
+        return False
+    return True
 
 def startHTTPServer(micropython_optimize=False):
     s = socket.socket()
-
     # Binding to all interfaces - server will be accessible to other hosts!
     ai = socket.getaddrinfo("0.0.0.0", 8080)
     #print("Bind address info:", ai)
     addr = ai[0][-1]
-
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.bind(addr)
     s.listen(5)
@@ -152,9 +158,6 @@ def startHTTPServer(micropython_optimize=False):
         #print(processed_request)
         # TODO write output of processPOST to file
         htmlDict = processPOST(processed_request)
-        if htmlDict:
-	    print("Received html POST request: %s" % htmlDict)
-            return htmlDict
         if not micropython_optimize:
             # To read line-oriented protocol (like HTTP) from a socket (and
             # avoid short read problem), it must be wrapped in a stream (aka
@@ -176,6 +179,9 @@ def startHTTPServer(micropython_optimize=False):
             client_sock.close()
         counter += 1
         #print()
+        if htmlDict:
+	    print("Received html POST request: %s" % htmlDict)
+            return htmlDict
 
 def inRequest(text):
    content=''
@@ -208,9 +214,10 @@ def processPOST(response_dict):
     return param_dict
 
 def apInit():
-	#startAccessPoint()
-	req = startHTTPServer()
-	writeConfig(req)
+    #startAccessPoint()
+    req = startHTTPServer()
+    writeConfig(req)
+    return True
 
 def main():
     configInit()
@@ -220,31 +227,40 @@ def main():
     while(True):
         if not configExists() or wifiTrials >=3:
             # start apInit and wait for new config file to be created.
+            if wifiTrials >=3:
+                print "Wifi connection failed too many times with current config"
+            print "Returning back to Access Point Mode"
             apInit()
             wifiTrials = 0
             wifiSuccess = False
             mqttSuccess = False
         # Config exists, read config and start wifi connection
-        readConfig()
         if not wifiSuccess:
+            if not readConfig():
+                print "Deleting Config and returning back to Access Point Mode"
+                deleteConfig()
+                continue
             wifiSuccess = startWifi()
             if wifiSuccess:
                 print "Wifi Connection Successfull!"
                 mqttTrials = 0
-                while mqttTrials <= 10:
+                while mqttTrials <= 5:
                     mqttSuccess = startMqtt()
                     if mqttSuccess:
                         print "MQTT Server Connection Successfull!"
                         break
                     else:
                         mqttTrials+=1
+                        time.sleep(1)
             else:
                 wifiTrials+=1
+                continue
         if wifiSuccess and mqttSuccess:
             # start Sending data
             print "Start Sending Data..."
             time.sleep(10)
-
+            wifiTrials = 0
+    print("Main Loop ended")
     return
 
 main()
