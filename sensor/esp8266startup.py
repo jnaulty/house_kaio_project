@@ -65,10 +65,24 @@ def startAccessPoint():
         return False
 	return True
 
+def disableAP():
+	print("Disabling AP")
+	ap_if = network.WLAN(network.AP_IF)
+	ap_if.active(False)
+	return
+
 def startWifi():
-	print("Starting up Wifi connection")
-	print("SSID: %s")%CONFIG["WIFI_SSID"]
-	return True
+    print("Starting up Wifi connection")
+    print("SSID: %s")%CONFIG["WIFI_SSID"]
+    #disableAP()
+    #sta_if = network.WLAN(network.STA_IF)
+    #if not sta_if.isconnected():
+    #    print('connecting to network...')
+    #    sta_if.active(True)
+    #    sta_if.connect(CONFIG["WIFI_SSID"], CONFIG["WIFI_PASSWORD"])
+    #    while not sta_if.isconnected():
+    #        pass
+    #print('network config:', sta_if.ifconfig())
 
 def startMqtt():
 	print("Starting up MQTT Connection...")
@@ -87,7 +101,7 @@ def deleteConfig():
         print('no file found')
 
 def writeConfig(htmlConfig):
-	print("Writting new config to file...")
+	print("Writting new config to file: %s" % CONFIG_PATH)
 	f = open(CONFIG_PATH, "w")
 	print("%s")%htmlConfig
 	for key, value in htmlConfig.items():
@@ -104,6 +118,7 @@ def readConfig():
 				key = configList[0]
 				value = configList[1]
 				if key in CONFIG:
+					print('Writing to global scope: CONFIG[%s] = %s' % (key, value))
 					CONFIG[key] = value
 				else:
 					print("Error in parsing network config, back to AP mode")
@@ -142,8 +157,8 @@ def startHTTPServer(micropython_optimize=False):
         # TODO write output of processPOST to file
         htmlDict = processPOST(processed_request)
         if htmlDict:
-	    writeConfig(htmlDict)
-            return True
+	    print("Received html POST request: %s" % htmlDict)
+            return htmlDict
         if not micropython_optimize:
             # To read line-oriented protocol (like HTTP) from a socket (and
             # avoid short read problem), it must be wrapped in a stream (aka
@@ -176,7 +191,6 @@ def inRequest(text):
       while k>0 and text[k]!='\n' and text[k]!='\r':
          k=k-1
       content=text[k+1:]
-   text=text[text.index(' ')+1:]
    url=text[:text.index(' ')]
    return {"method":method,"url":url,"content":content}
 
@@ -199,7 +213,8 @@ def processPOST(response_dict):
 
 def apInit():
 	#startAccessPoint()
-	startHTTPServer()
+	req = startHTTPServer()
+	writeConfig(req)
 
 def main():
     configInit()
