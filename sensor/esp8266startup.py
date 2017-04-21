@@ -1,10 +1,10 @@
 try:
     import usocket as socket
+    import network
+    import os
+    import time
 except:
     import socket
-import os
-import time
-#import network 
 
 CONFIG_PATH = "wifi.cfg"
 WIFI_SSID = ""
@@ -50,16 +50,20 @@ def configInit():
 	CONFIG["WIFI_SSID"] = WIFI_SSID
 	CONFIG["WIFI_PASSWORD"] = WIFI_PASSWORD
 	CONFIG["MQTT_HOST"] = MQTT_HOST
-        CONFIG["MQTT_PORT"] = MQTT_PORT
+    CONFIG["MQTT_PORT"] = MQTT_PORT
 	CONFIG["SENSOR_NAME"] = SENSOR_NAME
 	CONFIG["SENSOR_TOPIC"] = SENSOR_TOPIC
 	return
 
 def startAccessPoint():
 	print("Starting up Access Point Mode")
-	ap_if = network.WLAN(network.AP_IF)
-	ap_if.active(True)
-	return
+	try:
+        ap_if = network.WLAN(network.AP_IF)
+        ap_if.active(True)
+    except:
+        print("ERROR: There was an error starting the Access Point")
+        return False
+	return True
 
 def startWifi():
 	print("Starting up Wifi connection")
@@ -105,14 +109,14 @@ def readConfig():
 					print("Error in parsing network config, back to AP mode")
 					print("%s")%line
 					f.close()
-					return
+					return False
 			else:
 				print("Error in parsing network config, back to AP mode")
 				print("%s")%line
 				f.close()
-				return
+				return False
 		f.close()
-	return
+	return True
 
 def startHTTPServer(micropython_optimize=False):
     s = socket.socket()
@@ -205,12 +209,16 @@ def main():
     while(True):
         if not configExists() or wifiTrials >=3:
             # start apInit and wait for new config file to be created.
-            apInit()
+            if not apInit():
+                break
             wifiTrials = 0
             wifiSuccess = False
             mqttSuccess = False
         # Config exists, read config and start wifi connection
-        readConfig()
+        if not readConfig():
+            print "Deleting Config and returning back to Access Point Mode"
+            deleteConfig()
+            continue
         if not wifiSuccess:
             wifiSuccess = startWifi()
             if wifiSuccess:
@@ -225,11 +233,12 @@ def main():
                         mqttTrials+=1
             else:
                 wifiTrials+=1
+                continue
         if wifiSuccess and mqttSuccess:
             # start Sending data
             print "Start Sending Data..."
             time.sleep(10)
-
+    print("Main Loop ended")
     return
 
 main()
