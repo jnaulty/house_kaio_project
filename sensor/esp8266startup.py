@@ -57,9 +57,9 @@ def configInit():
     return
 
 def startAccessPoint():
+    disableSTA()
     print("Starting up Access Point Mode")
     try:
-        disableSTA()
         ap_if = network.WLAN(network.AP_IF)
         ap_if.active(True)
     except:
@@ -81,7 +81,7 @@ def disableSTA():
 
 def startWifi():
     print("Starting up Wifi connection")
-    print("SSID: %s")%CONFIG["WIFI_SSID"]
+    print("SSID: %s" %CONFIG["WIFI_SSID"])
     disableAP()
     sta_if = network.WLAN(network.STA_IF)
     if not sta_if.isconnected():
@@ -99,8 +99,8 @@ def startWifi():
 
 def startMqtt():
     print("Starting up MQTT Connection...")
-    print("MQTT Server: %s")%CONFIG["MQTT_HOST"]
-    print("MQTT Port: %s")%CONFIG["MQTT_PORT"]
+    print("MQTT Server: %s" %CONFIG["MQTT_HOST"])
+    print("MQTT Port: %s" %CONFIG["MQTT_PORT"])
     return True
 
 
@@ -138,7 +138,7 @@ def readConfig():
                     CONFIG[key] = value
                 else:
                     print("Error in parsing network config, back to AP mode")
-                    print("%s")%line
+                    print("%s" %line)
                     f.close()
                     return False
             else:
@@ -156,23 +156,25 @@ def startHTTPServer(micropython_optimize=False):
     s = socket.socket()
     # Binding to all interfaces - server will be accessible to other hosts!
     ai = socket.getaddrinfo("0.0.0.0", 8080)
-    #print("Bind address info:", ai)
+    print("Bind address info:", ai)
     addr = ai[0][-1]
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.bind(addr)
     s.listen(5)
-    #print("Listening, connect your browser to http://<this_host>:8080/")
-
+    #print("Listening, connect your browser to http://%s:8080" %addr)
     counter = 0
     while True:
         res = s.accept()
+        print(res)
         client_sock = res[0]
         client_addr = res[1]
         req=client_sock.recv(4096)
         processed_request=inRequest(req)
-        #print(processed_request)
-        # TODO write output of processPOST to file
+        print(processed_request)
         htmlDict = processPOST(processed_request)
+        if htmlDict:
+            print("Received html POST request: %s" % htmlDict)
+            return htmlDict
         if not micropython_optimize:
             # To read line-oriented protocol (like HTTP) from a socket (and
             # avoid short read problem), it must be wrapped in a stream (aka
@@ -188,35 +190,31 @@ def startHTTPServer(micropython_optimize=False):
             client_stream = client_sock
 
         client_stream.write(index)
-
         client_stream.close()
         if not micropython_optimize:
             client_sock.close()
         counter += 1
         #print()
-        if htmlDict:
-	    print("Received html POST request: %s" % htmlDict)
-            return htmlDict
+
 
 def inRequest(text):
-   content=''
-   if text[0:3]=='GET':
-      method='GET'
-   else:
-      method='POST'
-      k=len(text)-1
-      while k>0 and text[k]!='\n' and text[k]!='\r':
-         k=k-1
-      content=text[k+1:]
-   url=text[:text.index(' ')]
-   return {"method":method,"url":url,"content":content}
+    text = text.decode("utf-8")
+    print(text)
+    content=''
+    if text[0:3]=='GET':
+        method='GET'
+    else:
+        method='POST'
+        k=len(text)-1
+        while k>0 and text[k]!='\n' and text[k]!='\r':
+            k=k-1
+        content=text[k+1:]
+    url=text[:text.index(' ')]
+    return {"method":method,"url":url,"content":content}
 
 def processPOST(response_dict):
-    '''
-    input is diction from inRequest
-    outputs dictionary of content from POST request
-    '''
     response_content = response_dict['content']
+    print(response_content)
     response_param_list= response_content.split('&')
     param_dict = {}
     if response_dict['method'] != 'POST':
@@ -225,6 +223,9 @@ def processPOST(response_dict):
         #TODO make the following code parse in a pythonic way
         # this is not pythonic
         key_value_pair = ele.split('=')
+        if len(key_value_pair) < 2:
+            print("Error processing the HTTP POST")
+            return
         param_dict[key_value_pair[0]] = key_value_pair[1]
     return param_dict
 
