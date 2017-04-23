@@ -172,7 +172,7 @@ if "__main__" == __name__:
 	# Set timer
 
 	sensList = sensorList()
-	sensList.addSensor("security_001", "front door")
+	sensList.addSensor("sensor_001", "front door")
 
 	# The callback for when the client receives a CONNACK response from the server.
 	def on_connect(client, userdata, flags, rc):
@@ -184,7 +184,9 @@ if "__main__" == __name__:
 
 	# The callback for when a PUBLISH message is received from the server.
 	def on_message(client, userdata, msg):
-		#print(msg.payload)
+		print('hello world')
+		print(msg.payload)
+		print('message paylod ^^')
 		(sensorID, sensorVoltage) = string.split(msg.payload)
 		print(msg)
 		sensorVoltage = string.atoi(sensorVoltage)
@@ -192,13 +194,14 @@ if "__main__" == __name__:
 		sensList.sensorState(sensorID, returnState(sensorVoltage))
 		MESSAGE = "Message: %s %s" % (sensorID,returnState(sensorVoltage))
 		print(sensorName+" "+returnState(sensorVoltage))
-		send.sendemail(from_addr    = 'watchmyraspberry@gmail.com',
-		  to_addr_list = ['jnaulty@gmail.com'],
-		  cc_addr_list = ['watchmyraspberry@gmail.com', 'cde.delcourt@gmail.com' ],
-		  subject      = 'Howdy',
-		  message      = MESSAGE,
-		  login        = 'watchmyraspberry',
-		  password     = EMAIL_PASSWORD)
+		if sensorVoltage < 15:
+			send.sendemail(from_addr    = 'watchmyraspberry@gmail.com',
+			  to_addr_list = ['jnaulty@gmail.com'],
+			  cc_addr_list = ['watchmyraspberry@gmail.com', 'cde.delcourt@gmail.com' ],
+			  subject      = 'Howdy',
+			  message      = MESSAGE,
+			  login        = 'watchmyraspberry',
+			  password     = EMAIL_PASSWORD)
 
 	client = mqtt.Client()
 	client.on_connect = on_connect
