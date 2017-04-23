@@ -1,6 +1,8 @@
 try:
     import usocket as socket
     import network as network
+    from umqtt.simple import MQTTClient
+    from machine import ADC
 except:
     import socket
 
@@ -12,10 +14,11 @@ CONFIG_PATH = "wifi.cfg"
 WIFI_SSID = ""
 WIFI_PASSWORD = ""
 MQTT_HOST = "192.168.1.168"
-MQTT_PORT = "1234"
+MQTT_PORT = "1883"
 SENSOR_NAME = "security001"
 SENSOR_TOPIC = "security"
 CONFIG = dict()
+MQTTCLIENT = None
 
 index = '''HTTP/1.0 200 OK\r\nContent-Type: text/html\r\n\r\n
 <html>
@@ -91,10 +94,11 @@ def startWifi():
         sta_if.connect(CONFIG["WIFI_SSID"], CONFIG["WIFI_PASSWORD"])
         if sta_if.isconnected():
             print('Network config:', sta_if.ifconfig())
+            print("Wifi Connection Successfull!")
             return True
         else:
             return False
-    print('Already connected!')
+    print("Wifi Already Connected!")
     print('Network config:', sta_if.ifconfig())
     return True
 
@@ -102,7 +106,13 @@ def startMqtt():
     print("Starting up MQTT Connection...")
     print("MQTT Server: %s" %CONFIG["MQTT_HOST"])
     print("MQTT Port: %s" %CONFIG["MQTT_PORT"])
-    return True
+    try:
+        client = MQTTClient("umqtt_client", CONFIG["MQTT_HOST"])
+        client.connect()
+    except OSError as e:
+        print("MQTT Error: %s" %e)
+        return client, False
+    return client, True
 
 
 def configExists():
@@ -242,6 +252,7 @@ def main():
     wifiTrials = 0
     wifiSuccess = False
     mqttSuccess = False
+    client = None
     while(True):
         if not configExists() or wifiTrials >=3:
             # start apInit and wait for new config file to be created.
@@ -254,30 +265,40 @@ def main():
             mqttSuccess = False
         # Config exists, read config and start wifi connection
         if not wifiSuccess:
+            wifiTrials+=1
             if not readConfig():
                 print("Deleting Config and returning back to Access Point Mode")
                 deleteConfig()
                 continue
             wifiSuccess = startWifi()
-            if wifiSuccess:
-                print("Wifi Connection Successfull!")
-                mqttTrials = 0
+            time.sleep(10)
+        if wifiSuccess:
+            mqttTrials = 0
+            wifiTrials = 0
+            if not mqttSuccess:
                 while mqttTrials <= 5:
-                    mqttSuccess = startMqtt()
+                    client, mqttSuccess = startMqtt()
                     if mqttSuccess:
                         print("MQTT Server Connection Successfull!")
+                        time.sleep(2)
                         break
                     else:
                         mqttTrials+=1
-                        time.sleep(1)
-            else:
-                wifiTrials+=1
-                continue
-        if wifiSuccess and mqttSuccess:
-            # start Sending data
-            print("Start Sending Data...")
-            time.sleep(10)
-            wifiTrials = 0
+                        time.sleep(2)
+            if mqttSuccess:
+                try:
+                    print("Start Sending Data...")
+                    adc = ADC(0)            # create ADC object on ADC pin
+                    data = adc.read()  # read value, 0-1024
+                    print(data)
+                    mqtt_data = "%s %s" % (CONFIG["SENSOR_NAME"], data)
+                    print(mqtt_data)
+                    client.publish(CONFIG["SENSOR_TOPIC"], mqtt_data)
+                    time.sleep(5)
+                except OSError as e:
+                    print("Publish Error: %s" %e)
+                    #client.close()
+                    mqttSuccess = False
     print("Main Loop ended")
     return
 
