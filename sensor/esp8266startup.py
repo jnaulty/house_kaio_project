@@ -291,11 +291,13 @@ def main():
                     adc = ADC(0)            # create ADC object on ADC pin
                     data = adc.read()  # read value, 0-1024
                     print(data)
-                    client.publish(CONFIG["SENSOR_TOPIC"], bytes(data))
+                    mqtt_data = "%s %s" % (CONFIG["SENSOR_NAME"], data)
+                    print(mqtt_data)
+                    client.publish(CONFIG["SENSOR_TOPIC"], mqtt_data)
                     time.sleep(5)
                 except OSError as e:
                     print("Publish Error: %s" %e)
-                    client.close()
+                    #client.close()
                     mqttSuccess = False
     print("Main Loop ended")
     return
