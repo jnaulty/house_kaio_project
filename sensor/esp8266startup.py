@@ -6,8 +6,9 @@ except:
 
 import os
 import time
+import gc
 
-CONFIG_PATH = "./wifi.cfg"
+CONFIG_PATH = "wifi.cfg"
 WIFI_SSID = ""
 WIFI_PASSWORD = ""
 MQTT_HOST = "192.168.1.168"
@@ -126,7 +127,7 @@ def writeConfig(htmlConfig):
     return True
 
 def readConfig():
-    if os.path.exists(CONFIG_PATH):
+    if configExists():
         f = open(CONFIG_PATH, 'r')
         for line in f:
             configList = line.strip().split(":")
@@ -165,16 +166,17 @@ def startHTTPServer(micropython_optimize=False):
     counter = 0
     while True:
         res = s.accept()
-        print(res)
+        print(gc.mem_free())
+        #print(res)
         client_sock = res[0]
         client_addr = res[1]
         req=client_sock.recv(4096)
         processed_request=inRequest(req)
-        print(processed_request)
+        #print(processed_request)
         htmlDict = processPOST(processed_request)
         if htmlDict:
-            print("Received html POST request: %s" % htmlDict)
-            return htmlDict
+            #print("Received html POST request: %s" % htmlDict)
+            print(htmlDict)
         if not micropython_optimize:
             # To read line-oriented protocol (like HTTP) from a socket (and
             # avoid short read problem), it must be wrapped in a stream (aka
