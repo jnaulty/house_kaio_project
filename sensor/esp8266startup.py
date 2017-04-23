@@ -2,6 +2,7 @@ try:
     import usocket as socket
     import network as network
     from umqtt.simple import MQTTClient
+    from machine import ADC
 except:
     import socket
 
@@ -287,7 +288,10 @@ def main():
             if mqttSuccess:
                 try:
                     print("Start Sending Data...")
-                    client.publish(CONFIG["SENSOR_TOPIC"], "Hello")
+                    adc = ADC(0)            # create ADC object on ADC pin
+                    data = adc.read()  # read value, 0-1024
+                    print(data)
+                    client.publish(CONFIG["SENSOR_TOPIC"], bytes(data))
                     time.sleep(5)
                 except OSError as e:
                     print("Publish Error: %s" %e)
