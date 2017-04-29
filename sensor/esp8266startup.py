@@ -165,28 +165,28 @@ def readConfig():
 
 def startHTTPServer(micropython_optimize=False):
     s = socket.socket()
+
     # Binding to all interfaces - server will be accessible to other hosts!
     ai = socket.getaddrinfo("0.0.0.0", 8080)
-    print("Bind address info:", ai)
+    #print("Bind address info:", ai)
     addr = ai[0][-1]
+
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.bind(addr)
     s.listen(5)
-    #print("Listening, connect your browser to http://%s:8080" %addr)
+    #print("Listening, connect your browser to http://<this_host>:8080/")
+
     counter = 0
     while True:
         res = s.accept()
-        print(gc.mem_free())
-        #print(res)
         client_sock = res[0]
         client_addr = res[1]
         req=client_sock.recv(4096)
         processed_request=inRequest(req)
         #print(processed_request)
-        htmlDict = processPOST(processed_request)
-        if htmlDict:
-            #print("Received html POST request: %s" % htmlDict)
-            print(htmlDict)
+        # TODO write output of processPOST to file
+        processPOST(processed_request)
+
         if not micropython_optimize:
             # To read line-oriented protocol (like HTTP) from a socket (and
             # avoid short read problem), it must be wrapped in a stream (aka
@@ -202,6 +202,7 @@ def startHTTPServer(micropython_optimize=False):
             client_stream = client_sock
 
         client_stream.write(index)
+
         client_stream.close()
         if not micropython_optimize:
             client_sock.close()
@@ -210,35 +211,48 @@ def startHTTPServer(micropython_optimize=False):
 
 
 def inRequest(text):
-    text = text.decode("utf-8")
-    print(text)
-    content=''
-    if text[0:3]=='GET':
-        method='GET'
-    else:
-        method='POST'
-        k=len(text)-1
-        while k>0 and text[k]!='\n' and text[k]!='\r':
-            k=k-1
-        content=text[k+1:]
-    url=text[:text.index(' ')]
-    return {"method":method,"url":url,"content":content}
+   content=''
+   #print(text)
+   text=text.decode('utf-8')
+   print(text)
+   if text[0:3]=='GET':
+      method='GET'
+   else:
+      method='POST'
+      k=len(text)-1
+      while k>0 and text[k]!='\n' and text[k]!='\r':
+         k=k-1
+      content=text[k+1:]
+   text=text[text.index(' ')+1:]
+   url=text[:text.index(' ')]
+   return {"method":method,"url":url,"content":content}
 
 def processPOST(response_dict):
+    '''
+    input is diction from inRequest
+    outputs dictionary of content from POST request
+    '''
+    #print(response_dict)
     response_content = response_dict['content']
-    print(response_content)
-    response_param_list= response_content.split('&')
-    param_dict = {}
+    #print(response_dict['method'])
     if response_dict['method'] != 'POST':
         return
+    res_offset = response_content.find('ssid')
+    if res_offset == -1:
+        print('POST body not found')
+        return
+    response_content = response_content[res_offset:]
+    response_param_list= response_content.split('&')
+    print('hello')
+    print(response_param_list)
+    param_dict = {}
     for ele in response_param_list:
         #TODO make the following code parse in a pythonic way
         # this is not pythonic
+        print(ele)
         key_value_pair = ele.split('=')
-        if len(key_value_pair) < 2:
-            print("Error processing the HTTP POST")
-            return
         param_dict[key_value_pair[0]] = key_value_pair[1]
+    print(param_dict)
     return param_dict
 
 def apInit():

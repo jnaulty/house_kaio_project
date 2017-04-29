@@ -46,9 +46,9 @@ def main(micropython_optimize=False):
         client_addr = res[1]
         req=client_sock.recv(4096)
         processed_request=inRequest(req)
-        print(processed_request)
+        #print(processed_request)
         # TODO write output of processPOST to file
-        print(processPOST(processed_request))
+        processPOST(processed_request)
 
         if not micropython_optimize:
             # To read line-oriented protocol (like HTTP) from a socket (and
@@ -74,6 +74,9 @@ def main(micropython_optimize=False):
 
 def inRequest(text):
    content=''
+   #print(text)
+   text=text.decode('utf-8')
+   print(text)
    if text[0:3]=='GET':
       method='GET'
    else:
@@ -91,18 +94,22 @@ def processPOST(response_dict):
     input is diction from inRequest
     outputs dictionary of content from POST request
     '''
+    #print(response_dict)
     response_content = response_dict['content']
-    response_param_list= response_content.split('&')
-    param_dict = {}
+    #print(response_dict['method'])
     if response_dict['method'] != 'POST':
         return
+    res_offset = response_content.find('ssid')
+    response_content = response_content[res_offset:]
+    response_param_list= response_content.split('&')
+    param_dict = {}
     for ele in response_param_list:
         #TODO make the following code parse in a pythonic way
         # this is not pythonic
         key_value_pair = ele.split('=')
         param_dict[key_value_pair[0]] = key_value_pair[1]
+    print(param_dict)
     return param_dict
-
 
 main()
 
