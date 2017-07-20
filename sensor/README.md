@@ -13,7 +13,7 @@ using micropython with esp8266-20170108-v1.8.7.bin
 ### transfer files 
 
 - install [ampy](https://learn.adafruit.com/micropython-basics-load-files-and-run-code/install-ampy)
-- use ampy: `ampy --port /dev/ttyUSB0 ls'
+- use ampy: `ampy --port /dev/ttyUSB0 ls`
 - 
 
 
